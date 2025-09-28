@@ -2,30 +2,43 @@ use std::env;
 use std::io;
 use std::process;
 
-fn match_pattern(input_line: &str, pattern: &str) -> bool {
+fn is_digit(c: char) -> bool {
+    let ascii_c = c as u8;
+    if ascii_c >= 48 && ascii_c <= 57 {
+        return true
+    }
+    return false
+}
 
-    let digits = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
+fn is_alphanumeric(c: char) -> bool {
+    let ascii_c = c as u8;
+    println!("{}", ascii_c);
+    if ascii_c >= 48 && ascii_c <= 57  ||
+       ascii_c >= 65 && ascii_c <= 90  ||
+       ascii_c >= 97 && ascii_c <= 122 ||
+       ascii_c == 95 {
+        return true
+    }
+    return false
+}
+
+fn match_pattern(input_line: &str, pattern: &str) -> bool {
 
     if pattern.chars().count() == 1 {
         return input_line.contains(pattern);
     } else if pattern.contains("\\d") {
-        for character in input_line.chars() {
-            for digit in digits {
-                if character == digit {
-                    return true
-                }
-            }
-        }
-        return false
+        return input_line.chars().any(|c| is_digit(c));
+    } else if pattern.contains("\\w") {
+        return input_line.chars().any(|c| is_alphanumeric(c));
     } else {
-        panic!("Unhandled pattern: {}", pattern)
+        panic!("Unhandled pattern: {}", pattern);
     }
 }
 
 // Usage: echo <input_text> | your_program.sh -E <pattern>
 fn main() {
     // You can use print statements as follows for debugging, they'll be visible when running tests.
-    eprintln!("Logs from your program will appear here!");
+    //eprintln!("Logs from your program will appear here!");
 
     if env::args().nth(1).unwrap() != "-E" {
         println!("Expected first argument to be '-E'");
@@ -39,8 +52,10 @@ fn main() {
 
     // Uncomment this block to pass the first stage
     if match_pattern(&input_line, &pattern) {
+        println!("Pattern found!");
         process::exit(0)
     } else {
+        println!("Pattern not found :(");
         process::exit(1)
     }
 }
