@@ -12,7 +12,6 @@ fn is_digit(c: char) -> bool {
 
 fn is_alphanumeric(c: char) -> bool {
     let ascii_c = c as u8;
-    println!("{}", ascii_c);
     if ascii_c >= 48 && ascii_c <= 57  ||
        ascii_c >= 65 && ascii_c <= 90  ||
        ascii_c >= 97 && ascii_c <= 122 ||
@@ -30,6 +29,10 @@ fn match_pattern(input_line: &str, pattern: &str) -> bool {
         return input_line.chars().any(|c| is_digit(c));
     } else if pattern.contains("\\w") {
         return input_line.chars().any(|c| is_alphanumeric(c));
+    } else if pattern.chars().nth(0) == Some('[') && pattern.chars().nth(pattern.len()-1) == Some(']') {
+        println!("matched");
+        let matchables = pattern;
+        return true;
     } else {
         panic!("Unhandled pattern: {}", pattern);
     }
