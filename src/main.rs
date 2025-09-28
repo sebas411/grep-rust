@@ -5,7 +5,10 @@ use std::process;
 fn match_pattern(input_line: &str, pattern: &str) -> bool {
 
     let digits = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
-    if pattern == "\\d" {
+
+    if pattern.chars().count() == 1 {
+        return input_line.contains(pattern);
+    } else if pattern.contains("\\d") {
         for character in input_line.chars() {
             for digit in digits {
                 if character == digit {
@@ -14,10 +17,6 @@ fn match_pattern(input_line: &str, pattern: &str) -> bool {
             }
         }
         return false
-    }
-
-    if pattern.chars().count() == 1 {
-        return input_line.contains(pattern);
     } else {
         panic!("Unhandled pattern: {}", pattern)
     }
