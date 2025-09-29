@@ -30,9 +30,13 @@ fn match_pattern(input_line: &str, pattern: &str) -> bool {
     } else if pattern.contains("\\w") {
         return input_line.chars().any(|c| is_alphanumeric(c));
     } else if pattern.chars().nth(0) == Some('[') && pattern.chars().nth(pattern.len()-1) == Some(']') {
-        println!("matched");
-        let matchables = pattern;
-        return true;
+        let matchables = &pattern[1..(pattern.len()-1)];
+        for matchable in matchables.chars() {
+            if input_line.contains(matchable) {
+                return true;
+            }
+        }
+        return false;
     } else {
         panic!("Unhandled pattern: {}", pattern);
     }
