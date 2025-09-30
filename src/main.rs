@@ -121,6 +121,10 @@ fn matchhere(regexp: &[String], text: &str) -> bool {
         return true;
     }
 
+    if regexp.len() == 1 && regexp[0] == "$" {
+        return text.len() == 0;
+    }
+
     if text.len() > 0 && (match_pattern(&text.chars().nth(0).unwrap().to_string(), &regexp[0])) {
         return matchhere(&regexp[1..regexp.len()], &text[1..text.len()]);
     }
