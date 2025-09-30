@@ -64,7 +64,7 @@ fn match_pattern(input_line: &str, pattern: &str) -> bool {
 fn matchgen(regexp: &[String], text: &str) -> bool {
     let mut index = 0;
     loop {
-        if matchhere(regexp, &text[index..]) {
+        if matchhere(regexp, &text.chars().skip(index).collect::<String>()) {
             return true;
         }
         if index >= text.len() {
@@ -80,7 +80,7 @@ fn matchhere(regexp: &[String], text: &str) -> bool {
         return true;
     }
 
-    if text.len() > 0 && (match_pattern(&text[0..1], &regexp[0])) {
+    if text.len() > 0 && (match_pattern(&text.chars().nth(0).unwrap().to_string(), &regexp[0])) {
         return matchhere(&regexp[1..regexp.len()], &text[1..text.len()]);
     }
     return false;
