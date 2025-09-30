@@ -121,12 +121,31 @@ fn matchhere(regexp: &[String], text: &str) -> bool {
         return true;
     }
 
+    if regexp.len() >= 2 && regexp[1] == "+" {
+        if regexp.len() == 2 {
+            return match_pattern(&text, &regexp[0])
+        } else {
+            return matchplus(&regexp[0], &regexp[2..], text)
+        }
+    }
+
     if regexp.len() == 1 && regexp[0] == "$" {
         return text.len() == 0;
     }
 
     if text.len() > 0 && (match_pattern(&text.chars().nth(0).unwrap().to_string(), &regexp[0])) {
         return matchhere(&regexp[1..regexp.len()], &text[1..text.len()]);
+    }
+    return false;
+}
+
+fn matchplus(c: &str, regexp: &[String], text: &str) -> bool {
+    let mut index = 0;
+    while text.len() > index + 1 && match_pattern(&text.chars().nth(index).unwrap().to_string(), c) {
+        if matchhere(regexp, &text.chars().skip(index+1).collect::<String>()) {
+            return true;
+        }
+        index += 1;
     }
     return false;
 }
