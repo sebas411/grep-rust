@@ -2,6 +2,44 @@ use std::env;
 use std::io;
 use std::process;
 
+fn pattern_splitter(pattern: &str) -> Vec<String> {
+    let mut pattern_array: Vec<String> = Vec::new();
+    let mut current_patt = String::from("");
+    let mut writing = false;
+    let mut skip = false;
+
+    for i in 0..pattern.len() {
+        if skip {
+            skip = false;
+            continue;
+        }
+        if writing {
+            current_patt.push(pattern.chars().nth(i).expect("In string range"));
+            if pattern.chars().nth(i) == Some(']') {
+                writing = false;
+                pattern_array.push(current_patt);
+                current_patt = "".to_string();
+            } 
+        } else {
+            if pattern.chars().nth(i) == Some('[') {
+                // println!("{}", i);
+                current_patt.push('[');
+                writing = true;
+            } else if pattern.chars().nth(i) == Some('\\') {
+                if pattern.chars().nth(i+1) == Some('\\') {
+                    pattern_array.push('\\'.to_string());
+                } else {
+                    pattern_array.push(pattern[i..i+2].to_string());
+                }
+                skip = true;
+            } else {
+                pattern_array.push(pattern.chars().nth(i).expect("In string range").to_string())
+            }
+        }
+    }
+    return pattern_array;
+}
+
 fn is_digit(c: char) -> bool {
     let ascii_c = c as u8;
     if ascii_c >= 48 && ascii_c <= 57 {
@@ -63,6 +101,9 @@ fn match_pattern(input_line: &str, pattern: &str) -> bool {
 
 fn matchgen(regexp: &[String], text: &str) -> bool {
     let mut index = 0;
+    if regexp.len() >= 2 && regexp[0] == "^" {
+        return matchhere(&regexp[1..], text)
+    }
     loop {
         if matchhere(regexp, &text.chars().skip(index).collect::<String>()) {
             return true;
@@ -98,40 +139,7 @@ fn main() {
 
     io::stdin().read_line(&mut input_line).unwrap();
 
-    let mut pattern_array: Vec<String> = Vec::new();
-    let mut current_patt = String::from("");
-    let mut writing = false;
-    let mut skip = false;
-
-    for i in 0..pattern.len() {
-        if skip {
-            skip = false;
-            continue;
-        }
-        if writing {
-            current_patt.push(pattern.chars().nth(i).expect("In string range"));
-            if pattern.chars().nth(i) == Some(']') {
-                writing = false;
-                pattern_array.push(current_patt);
-                current_patt = "".to_string();
-            } 
-        } else {
-            if pattern.chars().nth(i) == Some('[') {
-                // println!("{}", i);
-                current_patt.push('[');
-                writing = true;
-            } else if pattern.chars().nth(i) == Some('\\') {
-                if pattern.chars().nth(i+1) == Some('\\') {
-                    pattern_array.push('\\'.to_string());
-                } else {
-                    pattern_array.push(pattern[i..i+2].to_string());
-                }
-                skip = true;
-            } else {
-                pattern_array.push(pattern.chars().nth(i).expect("In string range").to_string())
-            }
-        }
-    }
+    let pattern_array = pattern_splitter(&pattern);
 
     // println!("pat length: {}", pattern_array.len());
     // for pat in &pattern_array {
