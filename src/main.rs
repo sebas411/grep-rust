@@ -33,7 +33,7 @@ fn match_pattern(input_line: &str, pattern: &str) -> bool {
         if pattern.chars().nth(1) == Some('^') {
             // Negative
             let unmatchables = &pattern[2..(pattern.len()-1)];
-            for c in input_line[0..(input_line.len()-1)].chars() {
+            for c in input_line[0..(input_line.len())].chars() {
                 let mut matched = false;
                 for unmatchable in unmatchables.chars() {
                     if c == unmatchable {
@@ -61,11 +61,33 @@ fn match_pattern(input_line: &str, pattern: &str) -> bool {
     }
 }
 
+fn matchgen(regexp: &[String], text: &str) -> bool {
+    let mut index = 0;
+    loop {
+        if matchhere(regexp, &text[index..]) {
+            return true;
+        }
+        if index >= text.len() {
+            break;
+        }
+        index += 1;
+    }
+    return false;
+}
+
+fn matchhere(regexp: &[String], text: &str) -> bool {
+    if regexp.len() == 0 {
+        return true;
+    }
+
+    if text.len() > 0 && (match_pattern(&text[0..1], &regexp[0])) {
+        return matchhere(&regexp[1..regexp.len()], &text[1..text.len()]);
+    }
+    return false;
+}
+
 // Usage: echo <input_text> | your_program.sh -E <pattern>
 fn main() {
-    // You can use print statements as follows for debugging, they'll be visible when running tests.
-    //eprintln!("Logs from your program will appear here!");
-
     if env::args().nth(1).unwrap() != "-E" {
         println!("Expected first argument to be '-E'");
         process::exit(1);
@@ -76,8 +98,47 @@ fn main() {
 
     io::stdin().read_line(&mut input_line).unwrap();
 
-    // Uncomment this block to pass the first stage
-    if match_pattern(&input_line, &pattern) {
+    let mut pattern_array: Vec<String> = Vec::new();
+    let mut current_patt = String::from("");
+    let mut writing = false;
+    let mut skip = false;
+
+    for i in 0..pattern.len() {
+        if skip {
+            skip = false;
+            continue;
+        }
+        if writing {
+            current_patt.push(pattern.chars().nth(i).expect("In string range"));
+            if pattern.chars().nth(i) == Some(']') {
+                writing = false;
+                pattern_array.push(current_patt);
+                current_patt = "".to_string();
+            } 
+        } else {
+            if pattern.chars().nth(i) == Some('[') {
+                // println!("{}", i);
+                current_patt.push('[');
+                writing = true;
+            } else if pattern.chars().nth(i) == Some('\\') {
+                if pattern.chars().nth(i+1) == Some('\\') {
+                    pattern_array.push('\\'.to_string());
+                } else {
+                    pattern_array.push(pattern[i..i+2].to_string());
+                }
+                skip = true;
+            } else {
+                pattern_array.push(pattern.chars().nth(i).expect("In string range").to_string())
+            }
+        }
+    }
+
+    // println!("pat length: {}", pattern_array.len());
+    // for pat in &pattern_array {
+    //     println!("{}", pat);
+    // }
+
+    if matchgen(&pattern_array, &input_line) {
         println!("Pattern found!");
         process::exit(0)
     } else {
