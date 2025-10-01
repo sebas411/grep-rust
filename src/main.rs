@@ -62,6 +62,9 @@ fn is_alphanumeric(c: char) -> bool {
 fn match_pattern(input_line: &str, pattern: &str) -> bool {
 
     if pattern.chars().count() == 1 {
+        if pattern == "." && input_line.len() > 0 {
+            return true;
+        }
         return input_line.contains(pattern);
     } else if pattern.contains("\\d") {
         return input_line.chars().any(|c| is_digit(c));
