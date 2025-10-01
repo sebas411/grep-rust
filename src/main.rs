@@ -8,6 +8,7 @@ fn pattern_splitter(pattern: &str) -> Vec<String> {
     let mut writing = false;
     let mut skip = false;
 
+
     for i in 0..pattern.len() {
         if skip {
             skip = false;
@@ -15,18 +16,18 @@ fn pattern_splitter(pattern: &str) -> Vec<String> {
         }
         if writing {
             current_patt.push(pattern.chars().nth(i).expect("In string range"));
-            if pattern.chars().nth(i) == Some(']') {
+            if pattern.chars().nth(i).unwrap() == ']' {
                 writing = false;
                 pattern_array.push(current_patt);
                 current_patt = "".to_string();
             } 
         } else {
-            if pattern.chars().nth(i) == Some('[') {
+            if pattern.chars().nth(i).unwrap() == '[' {
                 // println!("{}", i);
                 current_patt.push('[');
                 writing = true;
-            } else if pattern.chars().nth(i) == Some('\\') {
-                if pattern.chars().nth(i+1) == Some('\\') {
+            } else if pattern.chars().nth(i).unwrap() == '\\' {
+                if pattern.chars().nth(i+1).unwrap() == '\\' {
                     pattern_array.push('\\'.to_string());
                 } else {
                     pattern_array.push(pattern[i..i+2].to_string());
@@ -102,69 +103,79 @@ fn match_pattern(input_line: &str, pattern: &str) -> bool {
     }
 }
 
-fn matchgen(regexp: &[String], text: &str) -> bool {
+fn matchgen(regexp_raw: &str, text: &str) -> bool {
     let mut index = 0;
+    let mut matched_length: i32;
+    let mut result: bool;
+    let regexp: &[String] = &pattern_splitter(regexp_raw);
+
     if regexp.len() >= 2 && regexp[0] == "^" {
-        return matchhere(&regexp[1..], text)
-    }
-    loop {
-        if matchhere(regexp, &text.chars().skip(index).collect::<String>()) {
-            return true;
+        (result, matched_length) = matchhere(&regexp[1..], text);
+    } else {
+        loop {
+            (result, matched_length) = matchhere(regexp, &text.chars().skip(index).collect::<String>());
+            if result || index >= text.len() {
+                break;
+            }
+            index += 1;
         }
-        if index >= text.len() {
-            break;
-        }
-        index += 1;
     }
-    return false;
+    println!("Matched length: {}", matched_length);
+    return result;
 }
 
-fn matchhere(regexp: &[String], text: &str) -> bool {
+fn matchhere(regexp: &[String], text: &str) -> (bool, i32) {
     if regexp.len() == 0 {
-        return true;
+        return (true, 0);
     }
 
     if regexp.len() >= 2 && regexp[1] == "?" {
         if regexp.len() == 2 {
-            return true;
+            return (true, 0);
         } else {
-            if matchhere(&regexp[2..], &text) {
-                return true;
-            } else if match_pattern(&text.chars().nth(0).unwrap().to_string(), &regexp[0]) &&
-                      matchhere(&regexp[2..], &text.chars().skip(1).collect::<String>()) {
-                return matchplus(&regexp[0], &regexp[2..], text)
+            let (res, pos) = matchhere(&regexp[2..], &text);
+            println!("{}", pos);
+            if res {
+                return (true, pos);
+            } else if match_pattern(&text.chars().nth(0).unwrap().to_string(), &regexp[0]) {
+                let (res, pos) = matchhere(&regexp[2..], &text.chars().skip(1).collect::<String>());
+                if res {
+                    return (true, pos + 1);
+                }
             }
-            return false;
+            return (false, 0);
         }
     }
 
     if regexp.len() >= 2 && regexp[1] == "+" {
         if regexp.len() == 2 {
-            return match_pattern(&text, &regexp[0])
+            return (match_pattern(&text, &regexp[0]), 0)
         } else {
             return matchplus(&regexp[0], &regexp[2..], text)
         }
     }
 
     if regexp.len() == 1 && regexp[0] == "$" {
-        return text.len() == 0;
+        return (text.len() == 0, 0);
     }
 
     if text.len() > 0 && (match_pattern(&text.chars().nth(0).unwrap().to_string(), &regexp[0])) {
-        return matchhere(&regexp[1..regexp.len()], &text[1..text.len()]);
+        let (res, leng) = matchhere(&regexp[1..regexp.len()], &text[1..text.len()]);
+        return (res, leng + 1);
     }
-    return false;
+    return (false, 0);
 }
 
-fn matchplus(c: &str, regexp: &[String], text: &str) -> bool {
+fn matchplus(c: &str, regexp: &[String], text: &str) -> (bool, i32) {
     let mut index = 0;
     while text.len() > index + 1 && match_pattern(&text.chars().nth(index).unwrap().to_string(), c) {
-        if matchhere(regexp, &text.chars().skip(index+1).collect::<String>()) {
-            return true;
+        let (res, i) = matchhere(regexp, &text.chars().skip(index+1).collect::<String>());
+        if res {
+            return (true, i + (index as i32) + 1);
         }
         index += 1;
     }
-    return false;
+    return (false, 0);
 }
 
 // Usage: echo <input_text> | your_program.sh -E <pattern>
@@ -179,14 +190,12 @@ fn main() {
 
     io::stdin().read_line(&mut input_line).unwrap();
 
-    let pattern_array = pattern_splitter(&pattern);
-
     // println!("pat length: {}", pattern_array.len());
     // for pat in &pattern_array {
     //     println!("{}", pat);
     // }
 
-    if matchgen(&pattern_array, &input_line) {
+    if matchgen(&pattern, &input_line) {
         println!("Pattern found!");
         process::exit(0)
     } else {
