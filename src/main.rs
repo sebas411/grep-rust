@@ -121,6 +121,20 @@ fn matchhere(regexp: &[String], text: &str) -> bool {
         return true;
     }
 
+    if regexp.len() >= 2 && regexp[1] == "?" {
+        if regexp.len() == 2 {
+            return true;
+        } else {
+            if matchhere(&regexp[2..], &text) {
+                return true;
+            } else if match_pattern(&text.chars().nth(0).unwrap().to_string(), &regexp[0]) &&
+                      matchhere(&regexp[2..], &text.chars().skip(1).collect::<String>()) {
+                return matchplus(&regexp[0], &regexp[2..], text)
+            }
+            return false;
+        }
+    }
+
     if regexp.len() >= 2 && regexp[1] == "+" {
         if regexp.len() == 2 {
             return match_pattern(&text, &regexp[0])
