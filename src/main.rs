@@ -275,7 +275,15 @@ fn matchhere(regexp: &[String], text: &str, backreferences: &[String], minimum_l
             }
             return (false, 0)
         } else {
-            return matchplus(&regexp[0], &regexp[2..], text, minimum_length)
+            let mut added_length = 0;
+            while added_length <= text.len() {
+                let (r, i) = matchplus(&regexp[0], &regexp[2..], text, minimum_length);
+                if r {
+                    return (r, i)
+                }
+                added_length += 1;
+            }
+            return (false, 0)
         }
     }
 
