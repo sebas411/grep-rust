@@ -198,6 +198,9 @@ fn matchhere(regexp: &[String], text: &str, backreferences: &[String]) -> (bool,
         }
         let new_reg_array: &[String] = &pattern_splitter(&regexp[1]);
         let (res, index) = matchhere(new_reg_array, &text, &backreferences);
+        if !res {
+            return (false, 0);
+        }
         if regexp.len() == 2 {
             return (res, index);
         } else {
