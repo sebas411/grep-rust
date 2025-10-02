@@ -136,22 +136,21 @@ fn match_pattern(input_line: &str, pattern: &str) -> bool {
 
 fn matchgen(regexp_raw: &str, text: &str) -> bool {
     let mut index = 0;
-    let mut matched_length: i32;
     let mut result: bool;
     let regexp: &[String] = &pattern_splitter(regexp_raw);
 
     if regexp.len() >= 2 && regexp[0] == "^" {
-        (result, matched_length) = matchhere(&regexp[1..], text);
+        (result, _) = matchhere(&regexp[1..], text);
     } else {
         loop {
-            (result, matched_length) = matchhere(regexp, &text.chars().skip(index).collect::<String>());
+            (result, _) = matchhere(regexp, &text.chars().skip(index).collect::<String>());
             if result || index >= text.len() {
                 break;
             }
             index += 1;
         }
     }
-    println!("Matched length: {}", matched_length);
+    // println!("Matched length: {}", matched_length);
     return result;
 }
 
@@ -194,7 +193,7 @@ fn matchhere(regexp: &[String], text: &str) -> (bool, i32) {
             return (true, 0);
         } else {
             let (res, pos) = matchhere(&regexp[2..], &text);
-            println!("{}", pos);
+            // println!("{}", pos);
             if res {
                 return (true, pos);
             } else if match_pattern(&text.chars().nth(0).unwrap().to_string(), &regexp[0]) {
