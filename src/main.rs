@@ -2,11 +2,31 @@ use std::env;
 use std::io;
 use std::process;
 
+fn get_options(pattern: &str) -> (String, String) {
+    let mut is_first = true;
+    let mut first_string = String::from("");
+    let mut second_string = String::from("");
+    for c in pattern.chars() {
+        if c == '|' {
+            is_first = false
+        } else {
+            if is_first {
+                first_string.push(c);
+            } else {
+                second_string.push(c);
+            }
+        }
+    }
+    return (first_string, second_string)
+}
+
 fn pattern_splitter(pattern: &str) -> Vec<String> {
     let mut pattern_array: Vec<String> = Vec::new();
     let mut current_patt = String::from("");
     let mut writing = false;
     let mut skip = false;
+    let mut in_group = false;
+    let mut current_group = String::from("");
 
 
     for i in 0..pattern.len() {
@@ -20,12 +40,23 @@ fn pattern_splitter(pattern: &str) -> Vec<String> {
                 writing = false;
                 pattern_array.push(current_patt);
                 current_patt = "".to_string();
-            } 
+            }
+        } else if in_group {
+            if pattern.chars().nth(i).unwrap() != ')' {
+                current_group.push(pattern.chars().nth(i).unwrap());
+            } else {
+                pattern_array.push('('.to_string());
+                pattern_array.push(current_group.clone());
+                in_group = false;
+            }
+
         } else {
             if pattern.chars().nth(i).unwrap() == '[' {
                 // println!("{}", i);
                 current_patt.push('[');
                 writing = true;
+            } else if pattern.chars().nth(i).unwrap() == '(' {
+                in_group = true;
             } else if pattern.chars().nth(i).unwrap() == '\\' {
                 if pattern.chars().nth(i+1).unwrap() == '\\' {
                     pattern_array.push('\\'.to_string());
@@ -127,6 +158,35 @@ fn matchgen(regexp_raw: &str, text: &str) -> bool {
 fn matchhere(regexp: &[String], text: &str) -> (bool, i32) {
     if regexp.len() == 0 {
         return (true, 0);
+    }
+
+    if regexp[0] == "(" {
+        if regexp.len() == 1 {
+            return (false, 0)
+        }
+        let (first_string, second_string) = get_options(&regexp[1]);
+        let first_reg_array: &[String] = &pattern_splitter(&first_string);
+        let second_reg_array: &[String] = &pattern_splitter(&second_string);
+        let (res, index) = matchhere(first_reg_array, &text);
+        if regexp.len() == 2 {
+            if res {
+                return (res, index);
+            } else {
+                let (res, index) = matchhere(second_reg_array, &text);
+                return (res, index);
+            }
+        } else {
+            if res {
+                let (r, i) = matchhere(&regexp[2..], &text.chars().skip(index as usize).collect::<String>());
+                return (r, i + index)
+            } else {
+                let (res, index) = matchhere(second_reg_array, &text);
+                if res {
+                    let (r, i) =  matchhere(&regexp[2..], &text.chars().skip(index as usize).collect::<String>());
+                    return (r, i + index);
+                }
+            }
+        }
     }
 
     if regexp.len() >= 2 && regexp[1] == "?" {
