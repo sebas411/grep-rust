@@ -174,7 +174,7 @@ fn matchhere(regexp: &[String], text: &str, backreferences: &[String], minimum_l
         return (true, 0);
     }
 
-    if regexp[0].chars().nth(0).unwrap() == '\\' && is_digit(regexp[0].chars().nth(1).unwrap()) {
+    if regexp[0].len() > 1 && regexp[0].chars().nth(0).unwrap() == '\\' && is_digit(regexp[0].chars().nth(1).unwrap()) {
         let reference_number = regexp[0].chars().nth(1).unwrap().to_digit(10).unwrap();
         if reference_number > backreferences.len() as u32 {
             return (false, 0);
