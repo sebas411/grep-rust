@@ -181,6 +181,7 @@ fn matchhere(regexp: &[String], text: &str, backreferences: &[String]) -> (bool,
             return (false, 0);
         }
         let reference_match = &backreferences[reference_number as usize - 1];
+        println!("'{}'", reference_match);
         let reference_pattern_array = pattern_splitter(&reference_match);
         let (res, index) = matchhere(&reference_pattern_array, text, &backreferences);
         if regexp.len() == 1 {
@@ -205,6 +206,7 @@ fn matchhere(regexp: &[String], text: &str, backreferences: &[String]) -> (bool,
             return (res, index);
         } else {
             let ref_match: &str = &text.chars().take(index as usize).collect::<String>();
+            println!("group match: '{}'", ref_match);
             let mut my_backreferences = backreferences.to_vec();
             my_backreferences.push(ref_match.to_string());
             let (r, i) = matchhere(&regexp[2..], &text.chars().skip(index as usize).collect::<String>(), &my_backreferences);
@@ -264,7 +266,11 @@ fn matchhere(regexp: &[String], text: &str, backreferences: &[String]) -> (bool,
     // one or more
     if regexp.len() >= 2 && regexp[1] == "+" {
         if regexp.len() == 2 {
-            return (match_pattern(&text, &regexp[0]), 0)
+            let res = match_pattern(&text, &regexp[0]);
+            if res {
+                return (res, 1)
+            }
+            return (false, 0)
         } else {
             return matchplus(&regexp[0], &regexp[2..], text)
         }
