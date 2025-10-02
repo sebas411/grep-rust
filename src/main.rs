@@ -2,6 +2,7 @@ use std::env;
 use std::io;
 use std::process;
 
+
 fn get_options(pattern: &str) -> (String, String) {
     let mut is_first = true;
     let mut first_string = String::from("");
@@ -27,6 +28,7 @@ fn pattern_splitter(pattern: &str) -> Vec<String> {
     let mut skip = false;
     let mut in_group = false;
     let mut current_group = String::from("");
+    let mut is_alternation = false;
 
 
     for i in 0..pattern.len() {
@@ -42,12 +44,21 @@ fn pattern_splitter(pattern: &str) -> Vec<String> {
                 current_patt = "".to_string();
             }
         } else if in_group {
-            if pattern.chars().nth(i).unwrap() != ')' {
-                current_group.push(pattern.chars().nth(i).unwrap());
-            } else {
-                pattern_array.push('('.to_string());
+            if pattern.chars().nth(i).unwrap() == ')' {
+                if is_alternation {
+                    pattern_array.push('|'.to_string());
+                    is_alternation = false;
+                } else {
+                    pattern_array.push('('.to_string());
+                }
                 pattern_array.push(current_group.clone());
                 in_group = false;
+            } else if pattern.chars().nth(i).unwrap() == '|' {
+                is_alternation = true;
+                current_group.push(pattern.chars().nth(i).unwrap());
+
+            } else {
+                current_group.push(pattern.chars().nth(i).unwrap());
             }
 
         } else {
@@ -60,6 +71,10 @@ fn pattern_splitter(pattern: &str) -> Vec<String> {
             } else if pattern.chars().nth(i).unwrap() == '\\' {
                 if pattern.chars().nth(i+1).unwrap() == '\\' {
                     pattern_array.push('\\'.to_string());
+                } else if is_digit(pattern.chars().nth(i+1).unwrap()) {
+                    let mut back_index = String::from("\\");
+                    back_index.push(pattern.chars().nth(i+1).unwrap());
+                    pattern_array.push(back_index);
                 } else {
                     pattern_array.push(pattern[i..i+2].to_string());
                 }
@@ -140,10 +155,10 @@ fn matchgen(regexp_raw: &str, text: &str) -> bool {
     let regexp: &[String] = &pattern_splitter(regexp_raw);
 
     if regexp.len() >= 2 && regexp[0] == "^" {
-        (result, _) = matchhere(&regexp[1..], text);
+        (result, _) = matchhere(&regexp[1..], text, &[]);
     } else {
         loop {
-            (result, _) = matchhere(regexp, &text.chars().skip(index).collect::<String>());
+            (result, _) = matchhere(regexp, &text.chars().skip(index).collect::<String>(), &[]);
             if result || index >= text.len() {
                 break;
             }
@@ -154,50 +169,87 @@ fn matchgen(regexp_raw: &str, text: &str) -> bool {
     return result;
 }
 
-fn matchhere(regexp: &[String], text: &str) -> (bool, i32) {
+fn matchhere(regexp: &[String], text: &str, backreferences: &[String]) -> (bool, i32) {
+
     if regexp.len() == 0 {
         return (true, 0);
     }
 
+    if regexp[0].chars().nth(0).unwrap() == '\\' && is_digit(regexp[0].chars().nth(1).unwrap()) {
+        let reference_number = regexp[0].chars().nth(1).unwrap().to_digit(10).unwrap();
+        if reference_number > backreferences.len() as u32 {
+            return (false, 0);
+        }
+        let reference_match = &backreferences[reference_number as usize - 1];
+        let reference_pattern_array = pattern_splitter(&reference_match);
+        let (res, index) = matchhere(&reference_pattern_array, text, &backreferences);
+        if regexp.len() == 1 {
+            return (res, index);
+        } else {
+            let (r, i) = matchhere(&regexp[1..], &text.chars().skip(index as usize).collect::<String>(), &backreferences);
+            return (r, i + index);
+        }
+    }
+
+    // match groups
     if regexp[0] == "(" {
+        if regexp.len() == 1 {
+            return (false, 0)
+        }
+        let new_reg_array: &[String] = &pattern_splitter(&regexp[1]);
+        let (res, index) = matchhere(new_reg_array, &text, &backreferences);
+        if regexp.len() == 2 {
+            return (res, index);
+        } else {
+            let ref_match: &str = &text.chars().take(index as usize).collect::<String>();
+            let mut my_backreferences = backreferences.to_vec();
+            my_backreferences.push(ref_match.to_string());
+            let (r, i) = matchhere(&regexp[2..], &text.chars().skip(index as usize).collect::<String>(), &my_backreferences);
+            return (r, i + index);
+        }
+    }
+
+    //alternation
+    if regexp[0] == "|" {
         if regexp.len() == 1 {
             return (false, 0)
         }
         let (first_string, second_string) = get_options(&regexp[1]);
         let first_reg_array: &[String] = &pattern_splitter(&first_string);
         let second_reg_array: &[String] = &pattern_splitter(&second_string);
-        let (res, index) = matchhere(first_reg_array, &text);
+        let (res, index) = matchhere(first_reg_array, &text, &backreferences);
         if regexp.len() == 2 {
             if res {
                 return (res, index);
             } else {
-                let (res, index) = matchhere(second_reg_array, &text);
+                let (res, index) = matchhere(second_reg_array, &text, &backreferences);
                 return (res, index);
             }
         } else {
             if res {
-                let (r, i) = matchhere(&regexp[2..], &text.chars().skip(index as usize).collect::<String>());
+                let (r, i) = matchhere(&regexp[2..], &text.chars().skip(index as usize).collect::<String>(), &backreferences);
                 return (r, i + index)
             } else {
-                let (res, index) = matchhere(second_reg_array, &text);
+                let (res, index) = matchhere(second_reg_array, &text, &backreferences);
                 if res {
-                    let (r, i) =  matchhere(&regexp[2..], &text.chars().skip(index as usize).collect::<String>());
+                    let (r, i) =  matchhere(&regexp[2..], &text.chars().skip(index as usize).collect::<String>(), &backreferences);
                     return (r, i + index);
                 }
             }
         }
     }
 
+    //optional
     if regexp.len() >= 2 && regexp[1] == "?" {
         if regexp.len() == 2 {
             return (true, 0);
         } else {
-            let (res, pos) = matchhere(&regexp[2..], &text);
+            let (res, pos) = matchhere(&regexp[2..], &text, &backreferences);
             // println!("{}", pos);
             if res {
                 return (true, pos);
             } else if match_pattern(&text.chars().nth(0).unwrap().to_string(), &regexp[0]) {
-                let (res, pos) = matchhere(&regexp[2..], &text.chars().skip(1).collect::<String>());
+                let (res, pos) = matchhere(&regexp[2..], &text.chars().skip(1).collect::<String>(), &backreferences);
                 if res {
                     return (true, pos + 1);
                 }
@@ -206,6 +258,7 @@ fn matchhere(regexp: &[String], text: &str) -> (bool, i32) {
         }
     }
 
+    // one or more
     if regexp.len() >= 2 && regexp[1] == "+" {
         if regexp.len() == 2 {
             return (match_pattern(&text, &regexp[0]), 0)
@@ -214,12 +267,14 @@ fn matchhere(regexp: &[String], text: &str) -> (bool, i32) {
         }
     }
 
+    // string end anchor
     if regexp.len() == 1 && regexp[0] == "$" {
         return (text.len() == 0, 0);
     }
 
+    // normal match
     if text.len() > 0 && (match_pattern(&text.chars().nth(0).unwrap().to_string(), &regexp[0])) {
-        let (res, leng) = matchhere(&regexp[1..regexp.len()], &text[1..text.len()]);
+        let (res, leng) = matchhere(&regexp[1..regexp.len()], &text[1..text.len()], &backreferences);
         return (res, leng + 1);
     }
     return (false, 0);
@@ -228,7 +283,7 @@ fn matchhere(regexp: &[String], text: &str) -> (bool, i32) {
 fn matchplus(c: &str, regexp: &[String], text: &str) -> (bool, i32) {
     let mut index = 0;
     while text.len() > index + 1 && match_pattern(&text.chars().nth(index).unwrap().to_string(), c) {
-        let (res, i) = matchhere(regexp, &text.chars().skip(index+1).collect::<String>());
+        let (res, i) = matchhere(regexp, &text.chars().skip(index+1).collect::<String>(), &[]);
         if res {
             return (true, i + (index as i32) + 1);
         }
