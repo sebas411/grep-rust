@@ -29,6 +29,7 @@ fn pattern_splitter(pattern: &str) -> Vec<String> {
     let mut in_group = false;
     let mut current_group = String::from("");
     let mut is_alternation = false;
+    let mut nest_level = 0;
 
 
     for i in 0..pattern.len() {
@@ -45,19 +46,27 @@ fn pattern_splitter(pattern: &str) -> Vec<String> {
             }
         } else if in_group {
             if pattern.chars().nth(i).unwrap() == ')' {
+                if nest_level > 0 {
+                    nest_level -= 1;
+                    current_group.push(pattern.chars().nth(i).unwrap());
+                    continue;
+                }
                 if is_alternation {
                     pattern_array.push('|'.to_string());
                     is_alternation = false;
                 } else {
                     pattern_array.push('('.to_string());
                 }
+                nest_level = 0;
                 pattern_array.push(current_group.clone());
                 in_group = false;
                 current_group = "".to_string();
             } else if pattern.chars().nth(i).unwrap() == '|' {
                 is_alternation = true;
                 current_group.push(pattern.chars().nth(i).unwrap());
-
+            } else if pattern.chars().nth(i).unwrap() == '(' {
+                nest_level += 1;
+                current_group.push(pattern.chars().nth(i).unwrap());
             } else {
                 current_group.push(pattern.chars().nth(i).unwrap());
             }
@@ -173,7 +182,7 @@ fn matchgen(regexp_raw: &str, text: &str) -> bool {
     return result;
 }
 
-fn matchhere(regexp: &[String], text: &str, backreferences: &[String], minimum_length: i32) -> (bool, i32) {
+fn matchhere(regexp: &[String], text: &str, backreferences: &[Option<String>], minimum_length: i32) -> (bool, i32) {
 
     if regexp.len() == 0 {
         return (true, 0);
@@ -185,8 +194,11 @@ fn matchhere(regexp: &[String], text: &str, backreferences: &[String], minimum_l
         if reference_number > backreferences.len() as u32 {
             return (false, 0);
         }
-        let reference_match = &backreferences[reference_number as usize - 1];
-        let reference_pattern_array = pattern_splitter(&reference_match);
+        let reference_match = backreferences[reference_number as usize - 1].clone();
+        if reference_match.is_none() {
+            return (false, 0);
+        }
+        let reference_pattern_array = pattern_splitter(&reference_match.expect("Checked"));
         let (res, index) = matchhere(&reference_pattern_array, text, &backreferences, 0);
         if regexp.len() == 1 {
             return (res, index);
@@ -204,7 +216,9 @@ fn matchhere(regexp: &[String], text: &str, backreferences: &[String], minimum_l
         let new_reg_array: &[String] = &pattern_splitter(&regexp[1]);
         let mut added_length = 0;
         while added_length <= text.len() {
-            let (res, index) = matchhere(new_reg_array, &text, &backreferences, added_length as i32);
+            let mut my_backreferences = backreferences.to_vec();
+            my_backreferences.push(None);
+            let (res, index) = matchhere(new_reg_array, &text, &my_backreferences, added_length as i32);
             if !res {
                 return (false, 0);
             }
@@ -213,7 +227,7 @@ fn matchhere(regexp: &[String], text: &str, backreferences: &[String], minimum_l
             } else {
                 let ref_match: &str = &text.chars().take(index as usize).collect::<String>();
                 let mut my_backreferences = backreferences.to_vec();
-                my_backreferences.push(ref_match.to_string());
+                my_backreferences.push(Some(ref_match.to_string()));
                 let (r, i) = matchhere(&regexp[2..], &text.chars().skip(index as usize).collect::<String>(), &my_backreferences, 0);
                 if r {
                     return (r, i + index);
@@ -232,26 +246,30 @@ fn matchhere(regexp: &[String], text: &str, backreferences: &[String], minimum_l
         let (first_string, second_string) = get_options(&regexp[1]);
         let first_reg_array: &[String] = &pattern_splitter(&first_string);
         let second_reg_array: &[String] = &pattern_splitter(&second_string);
-        let (res, index) = matchhere(first_reg_array, &text, &backreferences, 0);
+        let mut my_backreferences = backreferences.to_vec();
+        my_backreferences.push(None);
+        let (res, index) = matchhere(first_reg_array, &text, &my_backreferences, 0);
         if regexp.len() == 2 {
             if res {
                 return (res, index);
             } else {
-                let (res, index) = matchhere(second_reg_array, &text, &backreferences, 0);
+                let (res, index) = matchhere(second_reg_array, &text, &my_backreferences, 0);
                 return (res, index);
             }
         } else {
             let ref_match: &str = &text.chars().take(index as usize).collect::<String>();
             let mut my_backreferences = backreferences.to_vec();
-            my_backreferences.push(ref_match.to_string());
+            my_backreferences.push(Some(ref_match.to_string()));
             if res {
                 let (r, i) = matchhere(&regexp[2..], &text.chars().skip(index as usize).collect::<String>(), &my_backreferences, 0);
                 return (r, i + index)
             } else {
-                let (res, index) = matchhere(second_reg_array, &text, &backreferences, 0);
+                let mut my_backreferences = backreferences.to_vec();
+                my_backreferences.push(None);
+                let (res, index) = matchhere(second_reg_array, &text, &my_backreferences, 0);
                 let ref_match: &str = &text.chars().take(index as usize).collect::<String>();
                 let mut my_backreferences = backreferences.to_vec();
-                my_backreferences.push(ref_match.to_string());
+                my_backreferences.push(Some(ref_match.to_string()));
                 if res {
                     let (r, i) =  matchhere(&regexp[2..], &text.chars().skip(index as usize).collect::<String>(), &my_backreferences, 0);
                     return (r, i + index);
