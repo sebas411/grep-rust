@@ -53,6 +53,7 @@ fn pattern_splitter(pattern: &str) -> Vec<String> {
                 }
                 pattern_array.push(current_group.clone());
                 in_group = false;
+                current_group = "".to_string();
             } else if pattern.chars().nth(i).unwrap() == '|' {
                 is_alternation = true;
                 current_group.push(pattern.chars().nth(i).unwrap());
@@ -153,6 +154,10 @@ fn matchgen(regexp_raw: &str, text: &str) -> bool {
     let mut result: bool;
     let regexp: &[String] = &pattern_splitter(regexp_raw);
 
+    for reg in regexp {
+        println!("{}", reg);
+    }
+
     if regexp.len() >= 2 && regexp[0] == "^" {
         (result, _) = matchhere(&regexp[1..], text, &[], 0);
     } else {
@@ -174,6 +179,7 @@ fn matchhere(regexp: &[String], text: &str, backreferences: &[String], minimum_l
         return (true, 0);
     }
 
+    // backreferences
     if regexp[0].len() > 1 && regexp[0].chars().nth(0).unwrap() == '\\' && is_digit(regexp[0].chars().nth(1).unwrap()) {
         let reference_number = regexp[0].chars().nth(1).unwrap().to_digit(10).unwrap();
         if reference_number > backreferences.len() as u32 {
