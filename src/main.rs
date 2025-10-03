@@ -154,9 +154,9 @@ fn matchgen(regexp_raw: &str, text: &str) -> bool {
     let mut result: bool;
     let regexp: &[String] = &pattern_splitter(regexp_raw);
 
-    for reg in regexp {
-        println!("{}", reg);
-    }
+    // for reg in regexp {
+    //     println!("{}", reg);
+    // }
 
     if regexp.len() >= 2 && regexp[0] == "^" {
         (result, _) = matchhere(&regexp[1..], text, &[], 0);
@@ -241,13 +241,19 @@ fn matchhere(regexp: &[String], text: &str, backreferences: &[String], minimum_l
                 return (res, index);
             }
         } else {
+            let ref_match: &str = &text.chars().take(index as usize).collect::<String>();
+            let mut my_backreferences = backreferences.to_vec();
+            my_backreferences.push(ref_match.to_string());
             if res {
-                let (r, i) = matchhere(&regexp[2..], &text.chars().skip(index as usize).collect::<String>(), &backreferences, 0);
+                let (r, i) = matchhere(&regexp[2..], &text.chars().skip(index as usize).collect::<String>(), &my_backreferences, 0);
                 return (r, i + index)
             } else {
                 let (res, index) = matchhere(second_reg_array, &text, &backreferences, 0);
+                let ref_match: &str = &text.chars().take(index as usize).collect::<String>();
+                let mut my_backreferences = backreferences.to_vec();
+                my_backreferences.push(ref_match.to_string());
                 if res {
-                    let (r, i) =  matchhere(&regexp[2..], &text.chars().skip(index as usize).collect::<String>(), &backreferences, 0);
+                    let (r, i) =  matchhere(&regexp[2..], &text.chars().skip(index as usize).collect::<String>(), &my_backreferences, 0);
                     return (r, i + index);
                 }
             }
