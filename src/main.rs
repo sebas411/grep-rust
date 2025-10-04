@@ -1,5 +1,7 @@
 use std::env;
+use std::fs::File;
 use std::io;
+use std::io::Read;
 use std::process;
 
 
@@ -353,22 +355,56 @@ fn matchplus(c: &str, regexp: &[String], text: &str, minimum_length: i32) -> (bo
 
 // Usage: echo <input_text> | your_program.sh -E <pattern>
 fn main() {
-    if env::args().nth(1).unwrap() != "-E" {
-        println!("Expected first argument to be '-E'");
+    let args_num = env::args().len();
+    let mut skip = false;
+    let mut pattern = String::from("");
+    let mut got_pattern = false;
+    let mut files_to_search: Vec<String> = vec![];
+    let mut found_match = false;
+
+    for arg_i in 1..args_num {
+        if skip {
+            skip = false;
+            continue;
+        }
+        if env::args().nth(arg_i).unwrap() == "-E" {
+            if args_num == arg_i + 1 {
+                println!("Expected a regular expression after '-E'");
+                process::exit(1);
+            }
+            pattern = env::args().nth(arg_i+1).unwrap();
+            skip = true;
+            got_pattern = true;
+        } else {
+            files_to_search.push(env::args().nth(arg_i).unwrap());
+        }
+    }
+
+    if !got_pattern {
+        println!("Didn't get a pattern to search ('-E' flag)");
         process::exit(1);
     }
 
-    let pattern = env::args().nth(2).unwrap();
     let mut input_line = String::new();
 
-    io::stdin().read_line(&mut input_line).unwrap();
+    if files_to_search.len() > 0 {
+        for filename in files_to_search {
+            let mut file = File::open(&filename).expect("File should be readable");
+            file.read_to_string(&mut input_line).expect("It should be readable to string");
+            if matchgen(&pattern, &input_line) {
+                found_match = true;
+            }
+            println!("{}", input_line);
+        }
+    } else {
+        io::stdin().read_line(&mut input_line).unwrap();
+        found_match = matchgen(&pattern, &input_line);
+        println!("{}", input_line);
+    }
 
-
-    if matchgen(&pattern, &input_line) {
-        println!("Pattern found!");
+    if found_match {
         process::exit(0)
     } else {
-        println!("Pattern not found :(");
         process::exit(1)
     }
 }
