@@ -393,8 +393,8 @@ fn main() {
             file.read_to_string(&mut input_line).expect("It should be readable to string");
             if matchgen(&pattern, &input_line) {
                 found_match = true;
+                println!("{}", input_line);
             }
-            println!("{}", input_line);
         }
     } else {
         io::stdin().read_line(&mut input_line).unwrap();
