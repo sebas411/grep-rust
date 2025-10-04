@@ -387,12 +387,15 @@ fn main() {
     let mut input_line = String::new();
 
     if files_to_search.len() > 0 {
-        for filename in files_to_search {
+        for filename in &files_to_search {
             let file = File::open(&filename).expect("File should be readable");
             let reader = BufReader::new(file);
             for line in reader.lines() {
                 input_line = line.expect("File should split into lines");
                 if matchgen(&pattern, &input_line) {
+                    if files_to_search.len() > 1 {
+                        print!("{}:", filename);
+                    }
                     found_match = true;
                     println!("{}", input_line);
                 }
