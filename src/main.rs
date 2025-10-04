@@ -61,7 +61,7 @@ fn pattern_splitter(pattern: &str) -> Vec<String> {
                 pattern_array.push(current_group.clone());
                 in_group = false;
                 current_group = "".to_string();
-            } else if pattern.chars().nth(i).unwrap() == '|' {
+            } else if pattern.chars().nth(i).unwrap() == '|' && nest_level == 0 {
                 is_alternation = true;
                 current_group.push(pattern.chars().nth(i).unwrap());
             } else if pattern.chars().nth(i).unwrap() == '(' {
@@ -250,36 +250,48 @@ fn matchhere(regexp: &[String], text: &str, backreferences: &mut Vec<Option<Stri
         let (first_string, second_string) = get_options(&regexp[1]);
         let first_reg_array: &[String] = &pattern_splitter(&first_string);
         let second_reg_array: &[String] = &pattern_splitter(&second_string);
-        let mut my_backreferences = backreferences.to_vec();
-        my_backreferences.push(None);
-        let (res, index) = matchhere(first_reg_array, &text, &mut my_backreferences, 0);
+        let backreferences_input_num = backreferences.len();
+        backreferences.push(None);
+        let (res, index) = matchhere(first_reg_array, &text, backreferences, 0);
         if regexp.len() == 2 {
             if res {
+                let ref_match: &str = &text.chars().take(index as usize).collect::<String>();
+                backreferences[backreferences_input_num] = Some(ref_match.to_string());
                 return (res, index);
             } else {
-                let (res, index) = matchhere(second_reg_array, &text, &mut my_backreferences, 0);
-                return (res, index);
+                backreferences.truncate(backreferences_input_num);
+                backreferences.push(None);
+                let (res, index) = matchhere(second_reg_array, &text, backreferences, 0);
+                if res {
+                    let ref_match: &str = &text.chars().take(index as usize).collect::<String>();
+                    backreferences[backreferences_input_num] = Some(ref_match.to_string());
+                    return (res, index);
+                }
             }
         } else {
-            let ref_match: &str = &text.chars().take(index as usize).collect::<String>();
-            let mut my_backreferences = backreferences.to_vec();
-            my_backreferences.push(Some(ref_match.to_string()));
             if res {
-                let (r, i) = matchhere(&regexp[2..], &text.chars().skip(index as usize).collect::<String>(), &mut my_backreferences, 0);
-                return (r, i + index)
-            } else {
-                let mut my_backreferences = backreferences.to_vec();
-                my_backreferences.push(None);
-                let (res, index) = matchhere(second_reg_array, &text, &mut my_backreferences, 0);
                 let ref_match: &str = &text.chars().take(index as usize).collect::<String>();
-                let mut my_backreferences = backreferences.to_vec();
-                my_backreferences.push(Some(ref_match.to_string()));
+                backreferences[backreferences_input_num] = Some(ref_match.to_string());
+                let (r, i) = matchhere(&regexp[2..], &text.chars().skip(index as usize).collect::<String>(), backreferences, 0);
+                if r {
+                    return (r, i + index)
+                }
+            } else {
+                backreferences.truncate(backreferences_input_num);
+                backreferences.push(None);
+                let (res, index) = matchhere(second_reg_array, &text, backreferences, 0);
+                let ref_match: &str = &text.chars().take(index as usize).collect::<String>();
+                backreferences[backreferences_input_num] = Some(ref_match.to_string());
                 if res {
-                    let (r, i) =  matchhere(&regexp[2..], &text.chars().skip(index as usize).collect::<String>(), &mut my_backreferences, 0);
-                    return (r, i + index);
+                    let (r, i) =  matchhere(&regexp[2..], &text.chars().skip(index as usize).collect::<String>(), backreferences, 0);
+                    if r {
+                        return (r, i + index);
+                    }
                 }
             }
         }
+        backreferences.truncate(backreferences_input_num);
+        return (false, 0);
     }
 
     //optional
