@@ -222,16 +222,19 @@ fn matchhere(regexp: &[String], text: &str, backreferences: &mut Vec<Option<Stri
             if !res {
                 return (false, 0);
             }
+            
+            let ref_match: &str = &text.chars().take(index as usize).collect::<String>();
+            backreferences[backreferences_input_num] = Some(ref_match.to_string());
+
             if regexp.len() == 2 {
                 return (res, index);
             } else {
-                let ref_match: &str = &text.chars().take(index as usize).collect::<String>();
-                backreferences[backreferences_input_num] = Some(ref_match.to_string());
                 let (r, i) = matchhere(&regexp[2..], &text.chars().skip(index as usize).collect::<String>(), backreferences, 0);
                 if r {
                     return (r, i + index);
                 }
             }
+            backreferences.truncate(backreferences_input_num);
             added_length += 1;
         }
         return (false, 0)
