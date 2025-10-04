@@ -168,10 +168,10 @@ fn matchgen(regexp_raw: &str, text: &str) -> bool {
     // }
 
     if regexp.len() >= 2 && regexp[0] == "^" {
-        (result, _) = matchhere(&regexp[1..], text, &[], 0);
+        (result, _) = matchhere(&regexp[1..], text, &mut [].to_vec(), 0);
     } else {
         loop {
-            (result, _) = matchhere(regexp, &text.chars().skip(index).collect::<String>(), &[], 0);
+            (result, _) = matchhere(regexp, &text.chars().skip(index).collect::<String>(), &mut [].to_vec(), 0);
             if result || index >= text.len() {
                 break;
             }
@@ -182,7 +182,7 @@ fn matchgen(regexp_raw: &str, text: &str) -> bool {
     return result;
 }
 
-fn matchhere(regexp: &[String], text: &str, backreferences: &[Option<String>], minimum_length: i32) -> (bool, i32) {
+fn matchhere(regexp: &[String], text: &str, backreferences: &mut Vec<Option<String>>, minimum_length: i32) -> (bool, i32) {
 
     if regexp.len() == 0 {
         return (true, 0);
@@ -199,11 +199,11 @@ fn matchhere(regexp: &[String], text: &str, backreferences: &[Option<String>], m
             return (false, 0);
         }
         let reference_pattern_array = pattern_splitter(&reference_match.expect("Checked"));
-        let (res, index) = matchhere(&reference_pattern_array, text, &backreferences, 0);
+        let (res, index) = matchhere(&reference_pattern_array, text, backreferences, 0);
         if regexp.len() == 1 {
             return (res, index);
         } else {
-            let (r, i) = matchhere(&regexp[1..], &text.chars().skip(index as usize).collect::<String>(), &backreferences, 0);
+            let (r, i) = matchhere(&regexp[1..], &text.chars().skip(index as usize).collect::<String>(), backreferences, 0);
             return (r, i + index);
         }
     }
@@ -215,10 +215,10 @@ fn matchhere(regexp: &[String], text: &str, backreferences: &[Option<String>], m
         }
         let new_reg_array: &[String] = &pattern_splitter(&regexp[1]);
         let mut added_length = 0;
+        let backreferences_input_num = backreferences.len();
         while added_length <= text.len() {
-            let mut my_backreferences = backreferences.to_vec();
-            my_backreferences.push(None);
-            let (res, index) = matchhere(new_reg_array, &text, &my_backreferences, added_length as i32);
+            backreferences.push(None);
+            let (res, index) = matchhere(new_reg_array, &text, backreferences, added_length as i32);
             if !res {
                 return (false, 0);
             }
@@ -226,9 +226,8 @@ fn matchhere(regexp: &[String], text: &str, backreferences: &[Option<String>], m
                 return (res, index);
             } else {
                 let ref_match: &str = &text.chars().take(index as usize).collect::<String>();
-                let mut my_backreferences = backreferences.to_vec();
-                my_backreferences.push(Some(ref_match.to_string()));
-                let (r, i) = matchhere(&regexp[2..], &text.chars().skip(index as usize).collect::<String>(), &my_backreferences, 0);
+                backreferences[backreferences_input_num] = Some(ref_match.to_string());
+                let (r, i) = matchhere(&regexp[2..], &text.chars().skip(index as usize).collect::<String>(), backreferences, 0);
                 if r {
                     return (r, i + index);
                 }
@@ -248,12 +247,12 @@ fn matchhere(regexp: &[String], text: &str, backreferences: &[Option<String>], m
         let second_reg_array: &[String] = &pattern_splitter(&second_string);
         let mut my_backreferences = backreferences.to_vec();
         my_backreferences.push(None);
-        let (res, index) = matchhere(first_reg_array, &text, &my_backreferences, 0);
+        let (res, index) = matchhere(first_reg_array, &text, &mut my_backreferences, 0);
         if regexp.len() == 2 {
             if res {
                 return (res, index);
             } else {
-                let (res, index) = matchhere(second_reg_array, &text, &my_backreferences, 0);
+                let (res, index) = matchhere(second_reg_array, &text, &mut my_backreferences, 0);
                 return (res, index);
             }
         } else {
@@ -261,17 +260,17 @@ fn matchhere(regexp: &[String], text: &str, backreferences: &[Option<String>], m
             let mut my_backreferences = backreferences.to_vec();
             my_backreferences.push(Some(ref_match.to_string()));
             if res {
-                let (r, i) = matchhere(&regexp[2..], &text.chars().skip(index as usize).collect::<String>(), &my_backreferences, 0);
+                let (r, i) = matchhere(&regexp[2..], &text.chars().skip(index as usize).collect::<String>(), &mut my_backreferences, 0);
                 return (r, i + index)
             } else {
                 let mut my_backreferences = backreferences.to_vec();
                 my_backreferences.push(None);
-                let (res, index) = matchhere(second_reg_array, &text, &my_backreferences, 0);
+                let (res, index) = matchhere(second_reg_array, &text, &mut my_backreferences, 0);
                 let ref_match: &str = &text.chars().take(index as usize).collect::<String>();
                 let mut my_backreferences = backreferences.to_vec();
                 my_backreferences.push(Some(ref_match.to_string()));
                 if res {
-                    let (r, i) =  matchhere(&regexp[2..], &text.chars().skip(index as usize).collect::<String>(), &my_backreferences, 0);
+                    let (r, i) =  matchhere(&regexp[2..], &text.chars().skip(index as usize).collect::<String>(), &mut my_backreferences, 0);
                     return (r, i + index);
                 }
             }
@@ -283,11 +282,11 @@ fn matchhere(regexp: &[String], text: &str, backreferences: &[Option<String>], m
         if regexp.len() == 2 {
             return (true, 0);
         } else {
-            let (res, pos) = matchhere(&regexp[2..], &text, &backreferences, 0);
+            let (res, pos) = matchhere(&regexp[2..], &text, backreferences, 0);
             if res {
                 return (true, pos);
             } else if match_pattern(&text.chars().nth(0).unwrap().to_string(), &regexp[0]) {
-                let (res, pos) = matchhere(&regexp[2..], &text.chars().skip(1).collect::<String>(), &backreferences, 0);
+                let (res, pos) = matchhere(&regexp[2..], &text.chars().skip(1).collect::<String>(), backreferences, 0);
                 if res {
                     return (true, pos + 1);
                 }
@@ -316,7 +315,7 @@ fn matchhere(regexp: &[String], text: &str, backreferences: &[Option<String>], m
 
     // normal match
     if text.len() > 0 && (match_pattern(&text.chars().nth(0).unwrap().to_string(), &regexp[0])) {
-        let (res, leng) = matchhere(&regexp[1..regexp.len()], &text[1..text.len()], &backreferences, 0);
+        let (res, leng) = matchhere(&regexp[1..regexp.len()], &text[1..text.len()], backreferences, 0);
         return (res, leng + 1);
     }
     return (false, 0);
@@ -325,7 +324,7 @@ fn matchhere(regexp: &[String], text: &str, backreferences: &[Option<String>], m
 fn matchplus(c: &str, regexp: &[String], text: &str, minimum_length: i32) -> (bool, i32) {
     let mut index = 0;
     while text.len() > index && match_pattern(&text.chars().nth(index).unwrap().to_string(), c) {
-        let (res, i) = matchhere(regexp, &text.chars().skip(index+1).collect::<String>(), &[], 0);
+        let (res, i) = matchhere(regexp, &text.chars().skip(index+1).collect::<String>(), &mut [].to_vec(), 0);
         let matched_length = i + (index as i32) + 1;
         if res && matched_length >= minimum_length {
             return (true, matched_length);
