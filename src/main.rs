@@ -226,10 +226,12 @@ fn matchhere(regexp: &[String], text: &str, backreferences: &mut Vec<Option<Stri
             let ref_match: &str = &text.chars().take(index as usize).collect::<String>();
             backreferences[backreferences_input_num] = Some(ref_match.to_string());
 
-            if regexp.len() == 2 {
-                return (res, index);
+            if regexp.len() == 2{
+                if res && index >= minimum_length {
+                    return (res, index);
+                }
             } else {
-                let (r, i) = matchhere(&regexp[2..], &text.chars().skip(index as usize).collect::<String>(), backreferences, 0);
+                let (r, i) = matchhere(&regexp[2..], &text.chars().skip(index as usize).collect::<String>(), backreferences, minimum_length - index);
                 if r {
                     return (r, i + index);
                 }
@@ -318,7 +320,7 @@ fn matchhere(regexp: &[String], text: &str, backreferences: &mut Vec<Option<Stri
 
     // normal match
     if text.len() > 0 && (match_pattern(&text.chars().nth(0).unwrap().to_string(), &regexp[0])) {
-        let (res, leng) = matchhere(&regexp[1..regexp.len()], &text[1..text.len()], backreferences, 0);
+        let (res, leng) = matchhere(&regexp[1..regexp.len()], &text[1..text.len()], backreferences, minimum_length-1);
         return (res, leng + 1);
     }
     return (false, 0);
