@@ -1,5 +1,5 @@
 use std::env;
-use std::fs::File;
+use std::fs::{self, File};
 use std::io::{self, BufRead, BufReader};
 use std::process;
 
@@ -352,14 +352,30 @@ fn matchplus(c: &str, regexp: &[String], text: &str, minimum_length: i32) -> (bo
     return (false, 0);
 }
 
-// Usage: echo <input_text> | your_program.sh -E <pattern>
+fn get_files_from_dir(dir: &str) -> Vec<String> {
+    let mut filenames: Vec<String> = vec![];
+    let readable_dir = fs::read_dir(dir).expect("should be dir");
+    for entry in readable_dir {
+        let entry = entry.unwrap();
+        let path = entry.path();
+        if path.is_dir() {
+            filenames.extend(get_files_from_dir(&path.to_str().unwrap()));
+        } else {
+            filenames.push(String::from(path.to_str().unwrap()));
+        }
+    }
+    return filenames;
+}
+
 fn main() {
     let args_num = env::args().len();
     let mut skip = false;
     let mut pattern = String::from("");
     let mut got_pattern = false;
     let mut files_to_search: Vec<String> = vec![];
+    let mut directories_to_search: Vec<String> = vec![];
     let mut found_match = false;
+    let mut recursive_search = false;
 
     for arg_i in 1..args_num {
         if skip {
@@ -374,8 +390,18 @@ fn main() {
             pattern = env::args().nth(arg_i+1).unwrap();
             skip = true;
             got_pattern = true;
+        } else if env::args().nth(arg_i).unwrap() == "-r" {
+            recursive_search = true;
         } else {
-            files_to_search.push(env::args().nth(arg_i).unwrap());
+            if recursive_search {
+                if files_to_search.len() > 0 {
+                    println!("'-r' should go before any directories");
+                    process::exit(1);
+                }
+                directories_to_search.push(env::args().nth(arg_i).unwrap());
+            } else {
+                files_to_search.push(env::args().nth(arg_i).unwrap());
+            }
         }
     }
 
@@ -383,9 +409,12 @@ fn main() {
         println!("Didn't get a pattern to search ('-E' flag)");
         process::exit(1);
     }
-
+    if recursive_search {
+        files_to_search = get_files_from_dir(&directories_to_search[0]);
+    }
+    
     let mut input_line = String::new();
-
+    
     if files_to_search.len() > 0 {
         for filename in &files_to_search {
             let file = File::open(&filename).expect("File should be readable");
@@ -404,9 +433,11 @@ fn main() {
     } else {
         io::stdin().read_line(&mut input_line).unwrap();
         found_match = matchgen(&pattern, &input_line);
-        println!("{}", input_line);
+        if found_match {
+            println!("{}", input_line);
+        }
     }
-
+    
     if found_match {
         process::exit(0)
     } else {
