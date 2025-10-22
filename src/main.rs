@@ -32,9 +32,14 @@ fn pattern_splitter(pattern: &str) -> Vec<String> {
     let mut current_group = String::from("");
     let mut is_alternation = false;
     let mut nest_level = 0;
+    let mut skip_n = 0;
 
 
     for i in 0..pattern.len() {
+        if skip_n > 0 {
+            skip_n -= 1;
+            continue;
+        }
         if skip {
             skip = false;
             continue;
@@ -90,6 +95,9 @@ fn pattern_splitter(pattern: &str) -> Vec<String> {
                     pattern_array.push(pattern[i..i+2].to_string());
                 }
                 skip = true;
+            } else if pattern.chars().nth(i).unwrap() == '{' {
+                pattern_array.push(format!("{{{}", pattern.chars().nth(i+1).unwrap()));
+                skip_n = 2;
             } else {
                 pattern_array.push(pattern.chars().nth(i).expect("In string range").to_string())
             }
@@ -189,7 +197,6 @@ fn matchhere(regexp: &[String], text: &str, backreferences: &mut Vec<Option<Stri
     if regexp.len() == 0 {
         return (true, 0);
     }
-    // println!("{:?}", regexp);
 
     // zero or more group
     if regexp.len() >=3 && GROUPS.contains(&regexp[0].as_str()) && regexp[2] == "*" {
@@ -199,6 +206,18 @@ fn matchhere(regexp: &[String], text: &str, backreferences: &mut Vec<Option<Stri
             return matchstargroup(&regexp[0..=1], &regexp[3..], text, minimum_length)
         }
 
+    }
+
+    // exact times
+    if regexp.len() >= 2 && regexp[1].chars().nth(0).unwrap_or(' ') == '{' {
+        let times = regexp[1].chars().nth(1).unwrap_or(' ').to_digit(10).unwrap() as i32;
+        return matchexact(&regexp[0], &regexp[2..], times, text, minimum_length);
+    }
+
+    // exact times group
+    if regexp.len() >= 3 && GROUPS.contains(&regexp[0].as_str()) && regexp[2].chars().nth(0).unwrap_or(' ') == '{' {
+        let times = regexp[2].chars().nth(1).unwrap_or(' ').to_digit(10).unwrap() as i32;
+        return matchexactgroup(&regexp[0..=1], &regexp[3..], times, text, minimum_length);
     }
 
     // backreferences
@@ -374,9 +393,72 @@ fn matchplus(c: &str, regexp: &[String], text: &str, minimum_length: i32) -> (bo
     return (false, 0);
 }
 
+fn matchexact(c: &str, regexp: &[String], times: i32, text: &str, minimum_length: i32) -> (bool, i32) {
+    matchrange(c, regexp, times, times, text, minimum_length)
+}
+
+fn matchexactgroup(patt: &[String], regexp: &[String], times: i32, text: &str, minimum_length: i32) -> (bool, i32) {
+    matchrangegroup(patt, regexp, times, times, text, minimum_length)
+}
+
+fn matchrange(c: &str, regexp: &[String], min_times: i32, max_times: i32, text: &str, minimum_length: i32) -> (bool, i32) {
+    let mut index = 0;
+    if max_times as usize > text.len() {
+        return (false, 0);
+    }
+    while text.len() > index && index < min_times as usize {
+        if !match_pattern(&text.chars().nth(index).unwrap().to_string(), c) {
+            return (false, 0);
+        }
+        index += 1;
+    }
+    while max_times as usize >= index {
+        if index > min_times as usize && !match_pattern(&text.chars().nth(index-1).unwrap().to_string(), c) {
+            break;
+        }
+        let (res, i) = matchhere(regexp, &text.chars().skip(index).collect::<String>(), &mut [].to_vec(), 0);
+        let matched_length = i + (index as i32);
+        if res && matched_length >= minimum_length {
+            return (true, matched_length);
+        }
+        index += 1;
+    }
+    return (false, 0);
+}
+
+fn matchrangegroup(patt: &[String], regexp: &[String], min_times: i32, max_times: i32, text: &str, minimum_length: i32) -> (bool, i32) {
+    let mut index = 0;
+    let mut text_matched = 0;
+    while text.len() >= text_matched && index < min_times as usize {
+        let (res_i, len_i) = matchhere(patt, &text.chars().skip(text_matched).collect::<String>(), &mut vec![], 0);
+        if !res_i {
+            return (false, 0);
+        }
+        text_matched += len_i as usize;
+        index += 1;
+    }
+    while text.len() >= text_matched && max_times as usize >= index {
+        if index > min_times as usize {
+            let (res1, i1) = matchhere(patt, &text.chars().skip(text_matched).collect::<String>(), &mut vec![], 0);
+            if res1 {
+                text_matched += i1 as usize;
+            } else {
+                break;
+            }
+        }
+        let (res, i) = matchhere(regexp, &text.chars().skip(text_matched).collect::<String>(), &mut [].to_vec(), 0);
+        let matched_length = i + (text_matched as i32);
+        if res && matched_length >= minimum_length {
+            return (true, matched_length);
+        }
+        index += 1;
+    }
+    return (false, 0);
+}
+
 fn matchstar(c: &str, regexp: &[String], text: &str, minimum_length: i32) -> (bool, i32) {
     let mut index = 0;
-    while text.len() > index {
+    while text.len() >= index {
         if index > 0 && !match_pattern(&text.chars().nth(index-1).unwrap().to_string(), c) {
             break;
         }
@@ -393,7 +475,7 @@ fn matchstar(c: &str, regexp: &[String], text: &str, minimum_length: i32) -> (bo
 fn matchstargroup(patt: &[String], regexp: &[String], text: &str, minimum_length: i32) -> (bool, i32) {
     let mut index = 0;
     let mut text_matched = 0;
-    while text.len() > index {
+    while text.len() > text_matched {
         if index > 0 {
             let (res1, i1) = matchhere(patt, &text.chars().skip(text_matched).collect::<String>(), &mut vec![], 0);
             if res1 {
