@@ -5,22 +5,19 @@ use std::process;
 
 const GROUPS: [&str; 2] = ["(", "|"];
 
-fn get_options(pattern: &str) -> (String, String) {
-    let mut is_first = true;
-    let mut first_string = String::from("");
-    let mut second_string = String::from("");
+fn get_options(pattern: &str) -> Vec<String> {
+    let mut options = vec![];
+    let mut current_string = String::from("");
     for c in pattern.chars() {
         if c == '|' {
-            is_first = false
+            options.push(current_string);
+            current_string = String::new();
         } else {
-            if is_first {
-                first_string.push(c);
-            } else {
-                second_string.push(c);
-            }
+            current_string.push(c);
         }
     }
-    return (first_string, second_string)
+    options.push(current_string);
+    options
 }
 
 fn pattern_splitter(pattern: &str) -> Vec<String> {
@@ -96,8 +93,13 @@ fn pattern_splitter(pattern: &str) -> Vec<String> {
                 }
                 skip = true;
             } else if pattern.chars().nth(i).unwrap() == '{' {
-                pattern_array.push(format!("{{{}", pattern.chars().nth(i+1).unwrap()));
+                let mut pat_push = format!("{{{}", pattern.chars().nth(i+1).unwrap());
                 skip_n = 2;
+                if pattern.chars().nth(i+2).unwrap() == ',' {
+                    skip_n += 1;
+                    pat_push.push(',');
+                }
+                pattern_array.push(pat_push);
             } else {
                 pattern_array.push(pattern.chars().nth(i).expect("In string range").to_string())
             }
@@ -208,16 +210,26 @@ fn matchhere(regexp: &[String], text: &str, backreferences: &mut Vec<Option<Stri
 
     }
 
-    // exact times
+    // range times
     if regexp.len() >= 2 && regexp[1].chars().nth(0).unwrap_or(' ') == '{' {
-        let times = regexp[1].chars().nth(1).unwrap_or(' ').to_digit(10).unwrap() as i32;
-        return matchexact(&regexp[0], &regexp[2..], times, text, minimum_length);
+        if regexp[1].chars().nth(2).unwrap_or(' ') == ',' {
+            let times = regexp[1].chars().nth(1).unwrap_or(' ').to_digit(10).unwrap() as i32;
+            return matchrange(&regexp[0], &regexp[2..], times, text.len() as i32, text, minimum_length)
+        } else {
+            let times = regexp[1].chars().nth(1).unwrap_or(' ').to_digit(10).unwrap() as i32;
+            return matchexact(&regexp[0], &regexp[2..], times, text, minimum_length);
+        }
     }
 
-    // exact times group
+    // range times group
     if regexp.len() >= 3 && GROUPS.contains(&regexp[0].as_str()) && regexp[2].chars().nth(0).unwrap_or(' ') == '{' {
-        let times = regexp[2].chars().nth(1).unwrap_or(' ').to_digit(10).unwrap() as i32;
-        return matchexactgroup(&regexp[0..=1], &regexp[3..], times, text, minimum_length);
+        if regexp[2].chars().nth(2).unwrap_or(' ') == ',' {
+            let times = regexp[2].chars().nth(1).unwrap_or(' ').to_digit(10).unwrap() as i32;
+            return matchrangegroup(&regexp[0..=1], &regexp[3..], times, text.len() as i32, text, minimum_length);
+        } else {
+            let times = regexp[2].chars().nth(1).unwrap_or(' ').to_digit(10).unwrap() as i32;
+            return matchexactgroup(&regexp[0..=1], &regexp[3..], times, text, minimum_length);
+        }
     }
 
     // backreferences
@@ -279,43 +291,21 @@ fn matchhere(regexp: &[String], text: &str, backreferences: &mut Vec<Option<Stri
         if regexp.len() == 1 {
             return (false, 0)
         }
-        let (first_string, second_string) = get_options(&regexp[1]);
-        let first_reg_array: &[String] = &pattern_splitter(&first_string);
-        let second_reg_array: &[String] = &pattern_splitter(&second_string);
+        let options = get_options(&regexp[1]);
         let backreferences_input_num = backreferences.len();
-        backreferences.push(None);
-        let (res, index) = matchhere(first_reg_array, &text, backreferences, 0);
-        if regexp.len() == 2 {
+        println!("options: {:?}", options);
+        for option in options {
+            let current_reg_array = pattern_splitter(&option);
+            backreferences.truncate(backreferences_input_num);
+            backreferences.push(None);
+            let (res, index) = matchhere(&current_reg_array, text, backreferences, 0);
             if res {
-                let ref_match: &str = &text.chars().take(index as usize).collect::<String>();
-                backreferences[backreferences_input_num] = Some(ref_match.to_string());
-                return (res, index);
-            } else {
-                backreferences.truncate(backreferences_input_num);
-                backreferences.push(None);
-                let (res, index) = matchhere(second_reg_array, &text, backreferences, 0);
-                if res {
-                    let ref_match: &str = &text.chars().take(index as usize).collect::<String>();
-                    backreferences[backreferences_input_num] = Some(ref_match.to_string());
+                let ref_match = text.chars().take(index as usize).collect::<String>();
+                backreferences[backreferences_input_num] = Some(ref_match);
+                if regexp.len() == 2 {
                     return (res, index);
-                }
-            }
-        } else {
-            if res {
-                let ref_match: &str = &text.chars().take(index as usize).collect::<String>();
-                backreferences[backreferences_input_num] = Some(ref_match.to_string());
-                let (r, i) = matchhere(&regexp[2..], &text.chars().skip(index as usize).collect::<String>(), backreferences, 0);
-                if r {
-                    return (r, i + index)
-                }
-            } else {
-                backreferences.truncate(backreferences_input_num);
-                backreferences.push(None);
-                let (res, index) = matchhere(second_reg_array, &text, backreferences, 0);
-                let ref_match: &str = &text.chars().take(index as usize).collect::<String>();
-                backreferences[backreferences_input_num] = Some(ref_match.to_string());
-                if res {
-                    let (r, i) =  matchhere(&regexp[2..], &text.chars().skip(index as usize).collect::<String>(), backreferences, 0);
+                } else {
+                    let (r, i) = matchhere(&regexp[2..], &text.chars().skip(index as usize).collect::<String>(), backreferences, 0);
                     if r {
                         return (r, i + index);
                     }
