@@ -3,6 +3,7 @@ use std::fs::{self, File};
 use std::io::{self, BufRead, BufReader};
 use std::process;
 
+const GROUPS: [&str; 2] = ["(", "|"];
 
 fn get_options(pattern: &str) -> (String, String) {
     let mut is_first = true;
@@ -188,6 +189,17 @@ fn matchhere(regexp: &[String], text: &str, backreferences: &mut Vec<Option<Stri
     if regexp.len() == 0 {
         return (true, 0);
     }
+    // println!("{:?}", regexp);
+
+    // zero or more group
+    if regexp.len() >=3 && GROUPS.contains(&regexp[0].as_str()) && regexp[2] == "*" {
+        if regexp.len() == 3 && minimum_length <= 0 {
+            return (true, 0)
+        } else {
+            return matchstargroup(&regexp[0..=1], &regexp[3..], text, minimum_length)
+        }
+
+    }
 
     // backreferences
     if regexp[0].len() > 1 && regexp[0].chars().nth(0).unwrap() == '\\' && is_digit(regexp[0].chars().nth(1).unwrap()) {
@@ -326,6 +338,16 @@ fn matchhere(regexp: &[String], text: &str, backreferences: &mut Vec<Option<Stri
         }
     }
 
+    // zero or more
+    if regexp.len() >= 2 && regexp[1] == "*" {
+        if regexp.len() == 2 && minimum_length <= 0 {
+            return (true, 0)
+        } else {
+            return matchstar(&regexp[0], &regexp[2..], text, minimum_length)
+        }
+
+    }
+
     // string end anchor
     if regexp.len() == 1 && regexp[0] == "$" {
         return (text.len() == 0, 0);
@@ -344,6 +366,44 @@ fn matchplus(c: &str, regexp: &[String], text: &str, minimum_length: i32) -> (bo
     while text.len() > index && match_pattern(&text.chars().nth(index).unwrap().to_string(), c) {
         let (res, i) = matchhere(regexp, &text.chars().skip(index+1).collect::<String>(), &mut [].to_vec(), 0);
         let matched_length = i + (index as i32) + 1;
+        if res && matched_length >= minimum_length {
+            return (true, matched_length);
+        }
+        index += 1;
+    }
+    return (false, 0);
+}
+
+fn matchstar(c: &str, regexp: &[String], text: &str, minimum_length: i32) -> (bool, i32) {
+    let mut index = 0;
+    while text.len() > index {
+        if index > 0 && !match_pattern(&text.chars().nth(index-1).unwrap().to_string(), c) {
+            break;
+        }
+        let (res, i) = matchhere(regexp, &text.chars().skip(index).collect::<String>(), &mut [].to_vec(), 0);
+        let matched_length = i + (index as i32);
+        if res && matched_length >= minimum_length {
+            return (true, matched_length);
+        }
+        index += 1;
+    }
+    return (false, 0);
+}
+
+fn matchstargroup(patt: &[String], regexp: &[String], text: &str, minimum_length: i32) -> (bool, i32) {
+    let mut index = 0;
+    let mut text_matched = 0;
+    while text.len() > index {
+        if index > 0 {
+            let (res1, i1) = matchhere(patt, &text.chars().skip(text_matched).collect::<String>(), &mut vec![], 0);
+            if res1 {
+                text_matched += i1 as usize;
+            } else {
+                break;
+            }
+        }
+        let (res, i) = matchhere(regexp, &text.chars().skip(text_matched).collect::<String>(), &mut [].to_vec(), 0);
+        let matched_length = i + (text_matched as i32);
         if res && matched_length >= minimum_length {
             return (true, matched_length);
         }
