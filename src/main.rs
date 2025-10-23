@@ -98,6 +98,10 @@ fn pattern_splitter(pattern: &str) -> Vec<String> {
                 if pattern.chars().nth(i+2).unwrap() == ',' {
                     skip_n += 1;
                     pat_push.push(',');
+                    if pattern.chars().nth(i+3).unwrap() != '}' {
+                        skip_n += 1;
+                        pat_push.push(pattern.chars().nth(i+3).unwrap());
+                    }
                 }
                 pattern_array.push(pat_push);
             } else {
@@ -214,7 +218,14 @@ fn matchhere(regexp: &[String], text: &str, backreferences: &mut Vec<Option<Stri
     if regexp.len() >= 2 && regexp[1].chars().nth(0).unwrap_or(' ') == '{' {
         if regexp[1].chars().nth(2).unwrap_or(' ') == ',' {
             let times = regexp[1].chars().nth(1).unwrap_or(' ').to_digit(10).unwrap() as i32;
-            return matchrange(&regexp[0], &regexp[2..], times, text.len() as i32, text, minimum_length)
+            let max_times;
+            if regexp[1].chars().nth(3).unwrap_or(' ') == ' ' {
+                max_times = text.len() as i32;
+            } else {
+                max_times = regexp[1].chars().nth(3).unwrap().to_digit(10).unwrap() as i32;
+            }
+            println!("maxtimes: {}", max_times);
+            return matchrange(&regexp[0], &regexp[2..], times, max_times, text, minimum_length)
         } else {
             let times = regexp[1].chars().nth(1).unwrap_or(' ').to_digit(10).unwrap() as i32;
             return matchexact(&regexp[0], &regexp[2..], times, text, minimum_length);
@@ -225,7 +236,13 @@ fn matchhere(regexp: &[String], text: &str, backreferences: &mut Vec<Option<Stri
     if regexp.len() >= 3 && GROUPS.contains(&regexp[0].as_str()) && regexp[2].chars().nth(0).unwrap_or(' ') == '{' {
         if regexp[2].chars().nth(2).unwrap_or(' ') == ',' {
             let times = regexp[2].chars().nth(1).unwrap_or(' ').to_digit(10).unwrap() as i32;
-            return matchrangegroup(&regexp[0..=1], &regexp[3..], times, text.len() as i32, text, minimum_length);
+            let max_times;
+            if regexp[2].chars().nth(3).unwrap_or(' ') == ' ' {
+                max_times = text.len() as i32;
+            } else {
+                max_times = regexp[2].chars().nth(3).unwrap().to_digit(10).unwrap() as i32;
+            }
+            return matchrangegroup(&regexp[0..=1], &regexp[3..], times, max_times, text, minimum_length);
         } else {
             let times = regexp[2].chars().nth(1).unwrap_or(' ').to_digit(10).unwrap() as i32;
             return matchexactgroup(&regexp[0..=1], &regexp[3..], times, text, minimum_length);
@@ -393,16 +410,13 @@ fn matchexactgroup(patt: &[String], regexp: &[String], times: i32, text: &str, m
 
 fn matchrange(c: &str, regexp: &[String], min_times: i32, max_times: i32, text: &str, minimum_length: i32) -> (bool, i32) {
     let mut index = 0;
-    if max_times as usize > text.len() {
-        return (false, 0);
-    }
-    while text.len() > index && index < min_times as usize {
-        if !match_pattern(&text.chars().nth(index).unwrap().to_string(), c) {
+    while index < min_times as usize {
+        if text.len() <= index || !match_pattern(&text.chars().nth(index).unwrap().to_string(), c) {
             return (false, 0);
         }
         index += 1;
     }
-    while max_times as usize >= index {
+    while text.len() >= index && max_times as usize >= index {
         if index > min_times as usize && !match_pattern(&text.chars().nth(index-1).unwrap().to_string(), c) {
             break;
         }
@@ -419,7 +433,10 @@ fn matchrange(c: &str, regexp: &[String], min_times: i32, max_times: i32, text: 
 fn matchrangegroup(patt: &[String], regexp: &[String], min_times: i32, max_times: i32, text: &str, minimum_length: i32) -> (bool, i32) {
     let mut index = 0;
     let mut text_matched = 0;
-    while text.len() >= text_matched && index < min_times as usize {
+    while index < min_times as usize {
+        if text.len() < text_matched {
+            return (false, 0);
+        }
         let (res_i, len_i) = matchhere(patt, &text.chars().skip(text_matched).collect::<String>(), &mut vec![], 0);
         if !res_i {
             return (false, 0);
