@@ -310,7 +310,6 @@ fn matchhere(regexp: &[String], text: &str, backreferences: &mut Vec<Option<Stri
         }
         let options = get_options(&regexp[1]);
         let backreferences_input_num = backreferences.len();
-        println!("options: {:?}", options);
         for option in options {
             let current_reg_array = pattern_splitter(&option);
             backreferences.truncate(backreferences_input_num);
@@ -562,7 +561,7 @@ fn main() {
         files_to_search = get_files_from_dir(&directories_to_search[0]);
     }
     
-    let mut input_line = String::new();
+    let mut input_line;
     
     if files_to_search.len() > 0 {
         for filename in &files_to_search {
@@ -580,10 +579,15 @@ fn main() {
             }
         }
     } else {
-        io::stdin().read_line(&mut input_line).unwrap();
-        found_match = matchgen(&pattern, &input_line);
-        if found_match {
-            println!("{}", input_line);
+        let stdin = io::stdin();
+        let reader = BufReader::new(stdin.lock());
+
+        for line in reader.lines() {
+            input_line = line.expect("Input should split into lines");
+            if matchgen(&pattern, &input_line) {
+                found_match = true;
+                println!("{}", input_line);
+            }
         }
     }
     
