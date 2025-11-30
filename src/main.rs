@@ -14,6 +14,7 @@ fn main() {
     let mut directories_to_search: Vec<String> = vec![];
     let mut found_match = false;
     let mut recursive_search = false;
+    let mut is_only_matching = false;
 
     for arg_i in 1..args_num {
         if skip {
@@ -30,6 +31,8 @@ fn main() {
             got_pattern = true;
         } else if env::args().nth(arg_i).unwrap() == "-r" {
             recursive_search = true;
+        } else if env::args().nth(arg_i).unwrap() == "-o" {
+            is_only_matching = true;
         } else {
             if recursive_search {
                 if files_to_search.len() > 0 {
@@ -59,7 +62,7 @@ fn main() {
             let reader = BufReader::new(file);
             for line in reader.lines() {
                 input_line = line.expect("File should split into lines");
-                if matchgen(&pattern, &input_line) {
+                if matchgen(&pattern, &input_line).is_some() {
                     if files_to_search.len() > 1 {
                         print!("{}:", filename);
                     }
@@ -74,9 +77,13 @@ fn main() {
 
         for line in reader.lines() {
             input_line = line.expect("Input should split into lines");
-            if matchgen(&pattern, &input_line) {
+            if let Some(matched) = matchgen(&pattern, &input_line) {
                 found_match = true;
-                println!("{}", input_line);
+                if is_only_matching {
+                    println!("{}", matched)
+                } else {
+                    println!("{}", input_line)
+                }
             }
         }
     }

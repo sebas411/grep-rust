@@ -45,28 +45,28 @@ fn match_pattern(input_line: &str, pattern: &str) -> bool {
     }
 }
 
-pub fn matchgen(regexp_raw: &str, text: &str) -> bool {
+pub fn matchgen(regexp_raw: &str, text: &str) -> Option<String> {
     let mut index = 0;
     let mut result: bool;
     let regexp: &[String] = &pattern_splitter(regexp_raw);
-
-    // for reg in regexp {
-    //     println!("{}", reg);
-    // }
+    let mut match_length;
 
     if regexp.len() >= 2 && regexp[0] == "^" {
-        (result, _) = matchhere(&regexp[1..], text, &mut [].to_vec(), 0);
+        (result, match_length) = matchhere(&regexp[1..], text, &mut [].to_vec(), 0);
     } else {
         loop {
-            (result, _) = matchhere(regexp, &text.chars().skip(index).collect::<String>(), &mut [].to_vec(), 0);
+            (result, match_length) = matchhere(regexp, &text.chars().skip(index).collect::<String>(), &mut [].to_vec(), 0);
             if result || index >= text.len() {
                 break;
             }
             index += 1;
         }
     }
-    // println!("Matched length: {}", &match_length);
-    return result;
+    if result {
+        let my_match = text.chars().skip(index).take(match_length as usize).collect();
+        return Some(my_match)
+    }
+    None
 }
 
 fn matchhere(regexp: &[String], text: &str, backreferences: &mut Vec<Option<String>>, minimum_length: i32) -> (bool, i32) {
