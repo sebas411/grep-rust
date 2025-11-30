@@ -45,28 +45,31 @@ fn match_pattern(input_line: &str, pattern: &str) -> bool {
     }
 }
 
-pub fn matchgen(regexp_raw: &str, text: &str) -> Option<String> {
+pub fn matchgen(regexp_raw: &str, text: &str) -> Vec<String> {
     let mut index = 0;
-    let mut result: bool;
     let regexp: &[String] = &pattern_splitter(regexp_raw);
-    let mut match_length;
+    let mut matches = vec![];
 
     if regexp.len() >= 2 && regexp[0] == "^" {
-        (result, match_length) = matchhere(&regexp[1..], text, &mut [].to_vec(), 0);
+        let (result, match_length) = matchhere(&regexp[1..], text, &mut [].to_vec(), 0);
+        if result {
+            let my_match = text.chars().take(match_length as usize).collect::<String>();
+            matches.push(my_match);
+        }
     } else {
         loop {
-            (result, match_length) = matchhere(regexp, &text.chars().skip(index).collect::<String>(), &mut [].to_vec(), 0);
-            if result || index >= text.len() {
+            let (result, match_length) = matchhere(regexp, &text.chars().skip(index).collect::<String>(), &mut [].to_vec(), 0);
+            if index >= text.len() {
                 break;
+            }
+            if result {
+                let my_match = text.chars().skip(index).take(match_length as usize).collect::<String>();
+                matches.push(my_match);
             }
             index += 1;
         }
     }
-    if result {
-        let my_match = text.chars().skip(index).take(match_length as usize).collect();
-        return Some(my_match)
-    }
-    None
+    matches
 }
 
 fn matchhere(regexp: &[String], text: &str, backreferences: &mut Vec<Option<String>>, minimum_length: i32) -> (bool, i32) {
@@ -206,16 +209,19 @@ fn matchhere(regexp: &[String], text: &str, backreferences: &mut Vec<Option<Stri
     //optional
     if regexp.len() >= 2 && regexp[1] == "?" {
         if regexp.len() == 2 {
-            return (true, 0);
+            if text.len() > 0 && match_pattern(&text.chars().nth(0).unwrap().to_string(), &regexp[0]) {
+                return (true, 1)
+            }
+            return (true, 0)
         } else {
             let (res, pos) = matchhere(&regexp[2..], &text, backreferences, 0);
-            if res {
-                return (true, pos);
-            } else if match_pattern(&text.chars().nth(0).unwrap().to_string(), &regexp[0]) {
+            if text.len() > 0 && match_pattern(&text.chars().nth(0).unwrap().to_string(), &regexp[0]) {
                 let (res, pos) = matchhere(&regexp[2..], &text.chars().skip(1).collect::<String>(), backreferences, 0);
                 if res {
                     return (true, pos + 1);
                 }
+            } else if res {
+                return (true, pos);
             }
             return (false, 0);
         }

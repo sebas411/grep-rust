@@ -62,7 +62,7 @@ fn main() {
             let reader = BufReader::new(file);
             for line in reader.lines() {
                 input_line = line.expect("File should split into lines");
-                if matchgen(&pattern, &input_line).is_some() {
+                if matchgen(&pattern, &input_line).len() > 0 {
                     if files_to_search.len() > 1 {
                         print!("{}:", filename);
                     }
@@ -77,12 +77,14 @@ fn main() {
 
         for line in reader.lines() {
             input_line = line.expect("Input should split into lines");
-            if let Some(matched) = matchgen(&pattern, &input_line) {
+            let matches = matchgen(&pattern, &input_line);
+            for matched in matches {
                 found_match = true;
                 if is_only_matching {
                     println!("{}", matched)
                 } else {
-                    println!("{}", input_line)
+                    println!("{}", input_line);
+                    break;
                 }
             }
         }
