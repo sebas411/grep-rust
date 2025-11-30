@@ -1,4 +1,5 @@
 use crate::modules::helpers::{get_options, is_alphanumeric, is_digit, pattern_splitter};
+use std::cmp::max;
 
 const GROUPS: [&str; 2] = ["(", "|"];
 
@@ -65,6 +66,7 @@ pub fn matchgen(regexp_raw: &str, text: &str) -> Vec<String> {
             if result {
                 let my_match = text.chars().skip(index).take(match_length as usize).collect::<String>();
                 matches.push(my_match);
+                index += max(match_length - 1, 0) as usize;
             }
             index += 1;
         }
