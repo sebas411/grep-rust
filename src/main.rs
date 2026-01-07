@@ -32,8 +32,10 @@ fn main() {
             got_pattern = true;
         } else if env::args().nth(arg_i).unwrap() == "-r" {
             recursive_search = true;
-        } else if env::args().nth(arg_i).unwrap().starts_with("--color=always") {
-            color = true;
+        } else if env::args().nth(arg_i).unwrap().starts_with("--color") {
+            if env::args().nth(arg_i).unwrap() == "--color=always" {
+                color = true;
+            }
         } else if env::args().nth(arg_i).unwrap() == "-o" {
             is_only_matching = true;
         } else {
