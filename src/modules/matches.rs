@@ -46,7 +46,7 @@ fn match_pattern(input_line: &str, pattern: &str) -> bool {
     }
 }
 
-pub fn matchgen(regexp_raw: &str, text: &str) -> Vec<String> {
+pub fn matchgen(regexp_raw: &str, text: &str) -> Vec<(usize, usize)> {
     let mut index = 0;
     let regexp: &[String] = &pattern_splitter(regexp_raw);
     let mut matches = vec![];
@@ -54,7 +54,7 @@ pub fn matchgen(regexp_raw: &str, text: &str) -> Vec<String> {
     if regexp.len() >= 2 && regexp[0] == "^" {
         let (result, match_length) = matchhere(&regexp[1..], text, &mut [].to_vec(), 0);
         if result {
-            let my_match = text.chars().take(match_length as usize).collect::<String>();
+            let my_match = (0, match_length as usize);
             matches.push(my_match);
         }
     } else {
@@ -64,7 +64,7 @@ pub fn matchgen(regexp_raw: &str, text: &str) -> Vec<String> {
                 break;
             }
             if result {
-                let my_match = text.chars().skip(index).take(match_length as usize).collect::<String>();
+                let my_match = (index, match_length as usize);
                 matches.push(my_match);
                 index += max(match_length - 1, 0) as usize;
             }

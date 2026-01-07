@@ -15,6 +15,7 @@ fn main() {
     let mut found_match = false;
     let mut recursive_search = false;
     let mut is_only_matching = false;
+    let mut color = false;
 
     for arg_i in 1..args_num {
         if skip {
@@ -31,6 +32,8 @@ fn main() {
             got_pattern = true;
         } else if env::args().nth(arg_i).unwrap() == "-r" {
             recursive_search = true;
+        } else if env::args().nth(arg_i).unwrap().starts_with("--color=always") {
+            color = true;
         } else if env::args().nth(arg_i).unwrap() == "-o" {
             is_only_matching = true;
         } else {
@@ -78,15 +81,31 @@ fn main() {
         for line in reader.lines() {
             input_line = line.expect("Input should split into lines");
             let matches = matchgen(&pattern, &input_line);
-            for matched in matches {
-                found_match = true;
-                if is_only_matching {
+            if is_only_matching {
+                for (m_start, m_size) in matches {
+                    let matched = input_line.chars().skip(m_start).take(m_size).collect::<String>();
+                    found_match = true;
                     println!("{}", matched)
-                } else {
-                    println!("{}", input_line);
-                    break;
                 }
             }
+            else {
+                if !matches.is_empty() {
+                    found_match = true;
+                }
+                if color {
+                    let mut rev_matches = matches.clone();
+                    rev_matches.reverse();
+                    let mut to_print = input_line.clone();
+                    for (m_start, m_size) in rev_matches {
+                        to_print.insert_str(m_start + m_size, "\u{1b}[m");
+                        to_print.insert_str(m_start, "\u{1b}[31;01m");
+                    }
+                    println!("{}", to_print);
+                } else {
+                    println!("{}", input_line);
+                }
+            }
+
         }
     }
     
