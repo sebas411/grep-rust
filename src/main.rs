@@ -89,8 +89,10 @@ fn main() {
                 }
             }
             else {
+                let mut line_match = false;
                 if !matches.is_empty() {
                     found_match = true;
+                    line_match = true;
                 }
                 if color {
                     let mut rev_matches = matches.clone();
@@ -100,9 +102,13 @@ fn main() {
                         to_print.insert_str(m_start + m_size, "\u{1b}[m");
                         to_print.insert_str(m_start, "\u{1b}[31;01m");
                     }
-                    println!("{}", to_print);
+                    if line_match {
+                        println!("{}", to_print);
+                    }
                 } else {
-                    println!("{}", input_line);
+                    if line_match {
+                        println!("{}", input_line);
+                    }
                 }
             }
 
