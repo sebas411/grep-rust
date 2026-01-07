@@ -1,7 +1,7 @@
 mod modules;
 use std::env;
 use std::fs::{File};
-use std::io::{self, BufRead, BufReader};
+use std::io::{self, BufRead, BufReader, IsTerminal};
 use std::process;
 use crate::modules::{helpers::get_files_from_dir, matches::matchgen};
 
@@ -35,6 +35,10 @@ fn main() {
         } else if env::args().nth(arg_i).unwrap().starts_with("--color") {
             if env::args().nth(arg_i).unwrap() == "--color=always" {
                 color = true;
+            } else if env::args().nth(arg_i).unwrap() == "--color=auto" {
+                if io::stdout().is_terminal() {
+                    color = true;
+                }
             }
         } else if env::args().nth(arg_i).unwrap() == "-o" {
             is_only_matching = true;
